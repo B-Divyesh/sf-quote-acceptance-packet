@@ -1,0 +1,9 @@
+{
+  "slug": "quote-acceptance-packet",
+  "title": "ScopeStamp",
+  "artifact_class": "pwa-offline",
+  "user": "A solo consultant or trade business owner who needs a client to accept a specific quote, exclusions, and change history before work starts.",
+  "smallest_useful_product": "Offline-first web app that produces a signed, shareable quote page/PDF, records explicit accept/decline and scoped change cards, and exports a compact acceptance archive.",
+  "monetization": "one-time",
+  "constraints": "Use tamper-evident event hashes and clear timestamp provenance; do not claim an e-signature has a particular legal effect; keep client data locally by default."
+}
