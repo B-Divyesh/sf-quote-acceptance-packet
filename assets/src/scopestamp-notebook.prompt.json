@@ -1,0 +1,8 @@
+{
+  "model": "factory-image (Azure OpenAI)",
+  "generated": "2026-08-28",
+  "size": "1536x1024",
+  "quality": "high",
+  "prompt": "Use case: stylized-concept. Asset type: responsive web landing-page hero illustration. Overhead editorial still life of an open warm ivory graph-paper field notebook on a worn oak workbench, abstract blue-black ink scope blocks and numbered marks with NO legible words, a separate red circular approval impression with NO letters, a small brass date stamp, carbon-copy slip, carpenter pencil, and two small pieces of amber drafting tape. Handcrafted realistic paper fibre and graphite, quiet trustworthy evidence-record mood, warm north-window light, 50mm top-down composition, crisp centre and gentle falloff. Palette: warm ivory, blue-black ink, muted blueprint teal, proof red, amber, field green. Leave calm negative space around the notebook. No people, no hands, no logos, no legible text, no letters, no watermark, no signature, no computer screen, no glossy 3D, no gradient background.",
+  "review": "Accepted: coherent overhead still life; no brands, legible text, signatures, people, anatomy issues, or misleading UI. Abstract circled numerals are intentional record marks."
+}

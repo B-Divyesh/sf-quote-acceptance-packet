@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://quote-acceptance-packet.sociobot.in/sitemap.xml

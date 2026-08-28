@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ScopeStamp notebook mark">
+  <rect width="512" height="512" rx="72" fill="#f4f0e5"/>
+  <path d="M118 78h286v356H118z" fill="#fffdf7" stroke="#172b36" stroke-width="20"/>
+  <path d="M167 78v356M216 78v356M118 151h286M118 224h286M118 297h286M118 370h286" stroke="#bcc7c1" stroke-width="8"/>
+  <path d="M263 181h92M263 225h66" stroke="#0b5e75" stroke-width="18" stroke-linecap="round"/>
+  <circle cx="302" cy="319" r="68" fill="none" stroke="#a43c32" stroke-width="18"/>
+  <path d="m267 320 25 25 50-61" fill="none" stroke="#a43c32" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M100 105h38M100 169h38M100 233h38M100 297h38M100 361h38" stroke="#172b36" stroke-width="16" stroke-linecap="round"/>
+</svg>
