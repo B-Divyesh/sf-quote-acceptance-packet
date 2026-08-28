@@ -8,6 +8,8 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('creates, locks, shares, decides and imports a quote receipt', async ({ page, context }, testInfo) => {
+  const consoleErrors: string[] = [];
+  page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
   await page.getByRole('button', { name: 'Start a quote' }).click();
   await page.getByLabel('Your business name').fill('Northline Joinery');
   await page.getByLabel('Your email').fill('owner@example.test');
@@ -27,6 +29,7 @@ test('creates, locks, shares, decides and imports a quote receipt', async ({ pag
   expect(link).toContain('#review=');
 
   const client = await context.newPage();
+  client.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
   await client.goto(link);
   await expect(client.getByText('Fingerprint verified')).toBeVisible();
   await client.getByLabel('Your full name').fill('Alex Client');
@@ -70,6 +73,7 @@ test('creates, locks, shares, decides and imports a quote receipt', async ({ pag
   // intentionally pins its browser-compatible 1.58.2 runtime.
   const results = await new AxeBuilder({ page: page as never }).analyze();
   expect(results.violations.filter(v => ['serious','critical'].includes(v.impact || ''))).toEqual([]);
+  expect(consoleErrors).toEqual([]);
   await page.screenshot({ path: testInfo.outputPath('accepted-record.png'), fullPage: true });
 });
 
