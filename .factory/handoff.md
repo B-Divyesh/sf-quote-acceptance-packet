@@ -1,5 +1,9 @@
 # ScopeStamp v1 handoff
 
+## Current independent verification status — FAIL (2026-08-28)
+
+Candidate `e261f9e04c9019316746964ca592b62ac8c50741` is deployed byte-for-byte at <https://quote-acceptance-packet.sociobot.in/>, and its local build/tests and end-to-end flows pass. It is **not accepted**: activating the keyboard “Skip to main content” link changes the fragment but leaves focus on `BODY` after the SPA rerender rather than on `main`. This violates the keyboard accessibility baseline. The live host also serves hashed assets with only `max-age=30` and has no CSP/framing/Permissions-Policy headers. See [.factory/verification-1.md](verification-1.md) for exact reproduction, full evidence, and required remediation.
+
 ## Shipped
 
 - A Vite + vanilla TypeScript offline PWA with install manifest, maskable icons,
@@ -58,6 +62,9 @@ no-cache. The factory still needs to register/switch the paid product in its
 billing environment; no product ID or provider secret is stored here.
 
 ## Known limits / next steps
+
+- **Release blocker:** repair skip-link focus after the `#main` navigation/rerender and add a regression test. Re-run independent verification before release.
+- **Deployment configuration:** serve hashed assets immutable; keep HTML/service worker short-cached or no-cache; add a restrictive CSP, anti-framing protection, and Permissions-Policy.
 
 - Shared packets are embedded in URL fragments to keep all quote data off the
   server. Very long scopes can produce links that messaging tools truncate;
