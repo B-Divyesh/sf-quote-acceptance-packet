@@ -146,6 +146,20 @@ test('a first service-worker install does not announce a false update', async ({
   await expect(page.locator('#toast-live')).not.toContainText(/update/i);
 });
 
+test('the job, audience, first action, and three facts fit before scrolling', async ({ page }) => {
+  const firstScreen = await page.evaluate(() => ({
+    h1: document.querySelector('h1')?.textContent?.trim(),
+    audience: [...document.querySelectorAll('main p')].some(element => element.textContent?.startsWith('For consultants and trade businesses')),
+    action: [...document.querySelectorAll('a, button')].some(element => element.textContent?.trim() === 'Try it with sample data'),
+    factsBottom: document.querySelector('.proof-line')?.getBoundingClientRect().bottom || Infinity,
+    viewportHeight: window.innerHeight,
+  }));
+  expect(firstScreen.h1).toBe('Record a quote and client decision');
+  expect(firstScreen.audience).toBe(true);
+  expect(firstScreen.action).toBe(true);
+  expect(firstScreen.factsBottom).toBeLessThanOrEqual(firstScreen.viewportHeight);
+});
+
 test('visible controls meet the touch target baseline and motion can be reduced', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   const shortTargets = await page.locator('a:visible, button:visible').evaluateAll(elements => elements
@@ -163,7 +177,7 @@ test('dark treatment and the purchase dialog pass an accessibility scan', async 
   await page.emulateMedia({ colorScheme: 'dark' });
   await page.reload();
   expect(await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor)).toBe('rgb(23, 27, 29)');
-  const opener = page.getByRole('button', { name: 'View Field kit' }).first();
+  const opener = page.locator('main [data-action="license"]');
   await opener.click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await expect(page.getByRole('link', { name: 'Buy once for $39' })).toBeFocused();

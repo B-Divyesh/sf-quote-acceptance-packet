@@ -74,8 +74,8 @@ function hero(): string {
       <span class="eyebrow">Quote acceptance records</span>
       <h1 id="home-title">Record a quote and client decision</h1>
       <p>For consultants and trade businesses who need the agreed scope, exclusions, price, and later changes in one record.</p>
-      <div class="hero-actions"><a class="button primary" href="/demo" data-route>Try it with sample data</a><button class="button" data-action="new-quote">Start your first quote</button><button class="button quiet" data-action="import">Import a record</button></div>
-      <p class="action-note">The sample opens a completed quote without changing your records.</p>
+      <div class="hero-actions"><a class="button primary" href="/demo" data-route>Try it with sample data</a><button class="button" data-action="new-quote">Start your first quote</button></div>
+      <p class="action-note">The sample opens a completed quote without changing your records. <button class="text-button" data-action="import">Import a record</button></p>
       <ul class="proof-line"><li>Works offline after your first visit</li><li>Records stay in this browser</li><li>Free for three open packets</li></ul>
     </div>
     <figure class="hero-figure">
