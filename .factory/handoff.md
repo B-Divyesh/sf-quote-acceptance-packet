@@ -1,43 +1,123 @@
-# ScopeStamp review handoff
+# ScopeStamp repair handoff
 
 ## Current result
 
-Independent review 1 on 2026-09-05 is **FAIL** with 14 findings and 17 untested public claim groups. The full evidence and exact reproduction details are in [review-1.md](review-1.md).
+Repair work order `quote-acceptance-packet-repair-1` is complete and deployed at
+<https://quote-acceptance-packet.sociobot.in>.
 
-The reviewed implementation is `fc9ea9a1f4fe16d8cd38e9290ac36d9f4c9137f8`. The documentation SHA at review start is `062a3c4af8e7a50c06dccc55bc0cf0c96142dab0`. A clean build from that SHA matched all 16 live files byte for byte.
+- Runtime implementation SHA: `1251dc8aaae640446d250b0c9b490f43beed4d16`
+- Prior failed implementation: `fc9ea9a1f4fe16d8cd38e9290ac36d9f4c9137f8`
+- Documentation SHA: the later commit containing this handoff; it does not alter
+  the deployed runtime.
+- Artifact: static offline-first PWA. Records use IndexedDB in the browser; there
+  is no backend, shared database, tenant service, or product health endpoint.
 
-No product code was changed in this review. Only this handoff and the review report were added or updated.
+## What changed
 
-## What passed
+- Added a one-click `/demo` sandbox with a realistic accepted $1,750 shelving
+  quote, three exclusions, a named decision, a pending $180 change, and a
+  tamper-evident event history.
+- Kept demo data in `demo:scopestamp-local`, separate from the real
+  `scopestamp-local` IndexedDB database. The persistent demo banner can reset
+  the sample or discard it and start for real.
+- Added `.factory/claims.json` with 18 public claims and one observable tagged
+  browser test for each claim.
+- Repaired skip-link and route-change focus, route announcements, route titles,
+  dialog focus return, touch target sizes, reduced motion, and dark treatment.
+- Connected the quoted record deletion promise to a confirmed delete control
+  and verified persistence after reload.
+- Added the required landing sections, plain audience and action copy, populated
+  preview, complete paid-tier details, navigation, footer attribution, and build
+  ID. The first-screen job, audience, action, and three facts fit at 1280×720 and
+  390×727 without horizontal overflow.
+- Added canonical, Open Graph, Twitter, favicon, Apple touch icon, route sitemap,
+  route-specific metadata, and a product-styled HTTP 404.
+- Added restrictive CSP, anti-framing, permissions, referrer, and content-type
+  headers. Hashed assets now have immutable one-year caching while HTML and the
+  service worker do not.
+- Prevented a false update notice on first service-worker installation and
+  replaced damaged-link parser details with a plain recovery message.
+- Added the demo guide, copy audit, claims registry, original-asset provenance,
+  and a verb-first 88-character catalog description. The catalog copy is also
+  at `/work/.evidence/catalog-description.txt`.
 
-- Fresh desktop and 390 px phone live sessions loaded without console, page, or request failures.
-- The realistic quote, lock, share, accept, decline, receipt import, scoped change, archive export/import, tamper rejection, reload persistence, and PDF paths passed.
-- Home and client-review pages reloaded offline after first load.
-- Light, dark, dialog, and populated-page Axe scans found no violations.
-- Reduced motion was honored and normal phone layout had no horizontal overflow.
-- `npm test`, `npm run build`, and `npm run test:e2e` passed from a clean clone.
-- Live Lighthouse: Performance 100, Accessibility 100, Best Practices 100, SEO 100; LCP 1.08 s, TBT 0 ms, CLS 0.
+## Earlier finding disposition
 
-## What remains
+| Finding | Disposition and evidence |
+| --- | --- |
+| F-01 demo absent | Fixed: `/demo`, banner, reset, start-real, separate database, and demo guide; `@claim:demo-sandbox` passes. |
+| F-02 claims absent | Fixed: 18 registry entries and 18 independently passing tagged commands. |
+| F-03 skip focus | Fixed: fresh live keyboard check moves focus to `main#main`. |
+| F-04 route focus and announcements | Fixed and covered for forward and back navigation. |
+| F-05 route titles | Fixed for home, demo, records, legal pages, shared review, and 404. |
+| F-06 false deletion claim | Fixed with confirmed in-product deletion; `@claim:delete-record` passes after reload. |
+| F-07 missing 404 | Fixed: an unknown live URL returns HTTP 404 with a styled recovery page. |
+| F-08 incomplete landing page | Fixed with first-screen audience, sample preview, three steps, limits/privacy, and exact paid tier. |
+| F-09 incomplete site chrome and metadata | Fixed with nav, metadata, social image, footer one-liner, attribution, and build ID. |
+| F-10 short asset cache | Fixed: live hashed JavaScript returns `public, max-age=31536000, immutable`. |
+| F-11 missing response policies | Fixed: live CSP, `frame-ancestors 'none'`, `X-Frame-Options: DENY`, Permissions-Policy, and correct manifest type. |
+| F-12 small phone targets | Fixed and exercised at 390 px. |
+| F-13 false first-install update | Fixed; the update message now requires an existing controller. |
+| F-14 parser error disclosure | Fixed with a plain changed-link recovery message. |
 
-Release is blocked by the missing demo sandbox and claims registry, 17 untested public claim groups, the still-broken skip link, missing SPA focus announcements, and a false privacy deletion promise. Other required work includes route titles, a real 404, landing/site metadata and footer structure, touch targets, immutable asset caching, response security policies, the false first-install update notice, and plain recovery errors.
+The three findings from `.factory/verification-1.md` are the same skip-focus,
+asset-cache, and response-policy defects above. All are closed on the live site.
+The core quote, decision, receipt, change, archive, PDF, offline, tamper-recovery,
+and accessibility paths that passed earlier remain passing.
 
-The three earlier findings remain open: skip-link focus, 30-second cache headers on hashed assets, and missing CSP/framing/Permissions-Policy headers.
+## Reproduce the checks
 
-## Run the current checks
+From a clean checkout of the implementation SHA:
 
 ```sh
 npm ci
 npm test
 npm run build
 npm run test:e2e
+npm run test:claims
 ```
 
-There are no claim commands to run because `.factory/claims.json` is missing. Add the claims file and tagged tests before requesting another independent review.
+Results on 5 September 2026:
 
-## Review artifacts
+- `npm ci`: passed; zero reported vulnerabilities.
+- `npm test`: 2/2 passed.
+- `npm run build`: passed and created `dist/`.
+- `npm run test:e2e`: 16/16 passed.
+- Every `test` command in `.factory/claims.json` was also run separately from
+  the clean checkout: 18/18 passed.
+- Production output: 46.23 KB JavaScript (14.78 KB gzip) and 15.29 KB CSS
+  (4.31 KB gzip). Initial bundles are below the product budgets.
 
-- Repository report: `.factory/review-1.md`
-- Factory copy: `/work/.evidence/qa-report.md`
-- Machine result: `/work/.evidence/qa-result.json`
-- Live browser output and screenshots: `/work/.evidence/live/`
+## Live verification
+
+- The factory URL verifier passed with one `<h1>`, one `<main>`, `lang=en`, a
+  route title, labelled images and buttons, and no load errors.
+- Fresh desktop and Pixel 5 contexts showed the job, audience, sample action,
+  and three facts before scrolling. Their facts ended at 717.44/720 px and
+  649.94/727 px respectively.
+- The one-click sample opened populated output. Creating and resetting temporary
+  demo data restored the sample and did not change the real database.
+- Fresh keyboard navigation focused the visible skip link, then `main#main`.
+  Privacy navigation focused and announced its heading.
+- The demo and a warmed shared packet reloaded offline in dedicated contexts.
+- Live request capture during the unlicensed demo stayed same-origin. There
+  were no console, page, or failed-request errors.
+- Axe found zero serious or critical issues on the exercised desktop and phone
+  states. Reduced motion and the dark treatment are covered by the browser suite.
+- An unknown route returned HTTP 404, used the title `Page not found —
+  ScopeStamp`, and offered a working return link.
+- All 21 public files in the final `dist/` matched the live response bytes. The
+  host-only `staticwebapp.config.json` was excluded because it is not public.
+- Mobile Lighthouse: Performance 100, Accessibility 100, Best Practices 100,
+  SEO 100; FCP 0.9 s, LCP 1.0 s, TBT 40 ms, CLS 0.
+- Live screenshots, JSON, headers, and Lighthouse output are under
+  `/work/.evidence/repair-1/live/`.
+
+## Known dependency
+
+No paid checkout was submitted and no real purchase was created. The $39
+one-time Field kit uses the authorised Sociobot checkout and verification API.
+Its destination, token-only request, valid and revoked responses, open-packet
+limit, and accessible export behavior are covered with recorded browser
+fixtures. Live payment processing and license issuance remain an external
+Sociobot/Dodo dependency. All free and offline product paths work without it.
