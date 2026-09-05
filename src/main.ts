@@ -1,13 +1,15 @@
 import './style.css';
-import { db } from './db';
+import { db, isDemoMode } from './db';
 import { BUY_URL, cachedLicense, captureLicense, saveLicense, verifyLicense } from './license';
 import { decodePacket, encodePacket, makeChangePacket, makeLedgerEvent, makeQuotePacket, makeReceipt, money, quoteTotal, sha256, shortHash, verifyPacket, verifyReceipt } from './record';
+import { seedDemo } from './sample';
 import type { Archive, ChangeCard, LedgerEvent, Packet, Quote, Receipt } from './types';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 let toastTimer = 0;
 let autosaveTimer = 0;
 let editorError = '';
+let focusAfterRender = false;
 
 const escape = (value: unknown) => String(value ?? '').replace(/[&<>'"]/g, char => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' })[char]!);
 const id = () => crypto.randomUUID();
@@ -15,29 +17,33 @@ const isoDate = (value: string) => value ? new Intl.DateTimeFormat(undefined, { 
 const dateTime = (value: string) => new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
 const statusLabel = (status: Quote['status']) => ({ draft: 'Draft', awaiting: 'Awaiting decision', accepted: 'Accepted', declined: 'Declined' })[status];
 const statusSymbol = (status: Quote['status']) => ({ draft: '○', awaiting: '◷', accepted: '✓', declined: '×' })[status];
+const currentLicense = (): ReturnType<typeof cachedLicense> => isDemoMode() ? { token: '', unlocked: false } : cachedLicense();
 
-captureLicense();
+if (!isDemoMode()) captureLicense();
 
 function shell(content: string, review = false): string {
   return `<div class="shell">
+    ${isDemoMode() ? `<aside class="demo-bar" aria-label="Demo controls"><strong>Demo — sample data, nothing is saved to your records</strong><span><button class="demo-control" data-action="reset-demo">Reset demo</button><button class="demo-control" data-action="start-real">Start for real</button></span></aside>` : ''}
     <header class="topbar">
-      <a class="brand" href="/" data-route><img src="/icon.svg" alt="" width="36" height="36"><span>ScopeStamp</span></a>
+      <a class="brand" href="${isDemoMode() ? '/demo' : '/'}" data-route><img src="/icon.svg" alt="" width="36" height="36"><span>ScopeStamp</span></a>
+      <nav aria-label="Main navigation"><a href="/demo" data-route>Demo</a><a href="/privacy" data-route>Privacy</a></nav>
       <div class="top-actions">
         <span class="offline-flag" role="status">Offline · saved locally</span>
-        ${review ? '' : `<button class="button quiet small" data-action="license">${cachedLicense().unlocked ? 'Field kit active' : 'Unlock field kit'}</button><button class="button primary small" data-action="new-quote">New quote</button>`}
+        ${review ? '' : `${isDemoMode() ? '' : `<button class="button quiet small" data-action="license">${currentLicense().unlocked ? 'Field kit active' : currentLicense().reason ? 'License inactive' : 'View Field kit'}</button>`}<button class="button primary small" data-action="new-quote">New quote</button>`}
       </div>
     </header>
     <main id="main" class="workbench" tabindex="-1">${content}</main>
     <footer class="app-footer">
-      <span>Private by default · Records stay on this device</span>
-      <span class="footer-links"><a href="/privacy" data-route>Privacy</a><a href="/terms" data-route>Terms</a><span>Original AI-generated notebook artwork</span></span>
+      <span>ScopeStamp records quote decisions and scope changes.</span>
+      <span class="footer-links"><a href="/privacy" data-route>Privacy</a><a href="/terms" data-route>Terms</a><a href="https://sociobot.in" rel="external">Built by Param Factory</a><span>Version 1.1.0</span><span>Original generated notebook artwork</span></span>
     </footer>
-    <div id="live" aria-live="polite" aria-atomic="true"></div>
+    <div id="toast-live" aria-live="polite" aria-atomic="true"></div>
+    <div id="route-live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
   </div>`;
 }
 
 function toast(message: string): void {
-  const live = document.querySelector('#live');
+  const live = document.querySelector('#toast-live');
   if (!live) return;
   live.innerHTML = `<div class="toast">${escape(message)}</div>`;
   window.clearTimeout(toastTimer);
@@ -45,8 +51,8 @@ function toast(message: string): void {
 }
 
 function route(path: string): void {
-  if (path.startsWith('/')) history.pushState({}, '', path);
-  else location.hash = path;
+  history.pushState({}, '', path);
+  focusAfterRender = true;
   void render();
 }
 
@@ -63,22 +69,30 @@ function newQuote(): Quote {
 }
 
 function hero(): string {
-  return `<section class="hero">
+  return `<section class="hero" aria-labelledby="home-title">
     <div class="hero-copy">
-      <span class="eyebrow">The scope record before the work</span>
-      <h1>Put the exact job in writing.</h1>
-      <p>Build a precise quote, mark what is excluded, and record a clear client decision. Later changes stay attached to the same tamper-evident history.</p>
-      <div class="hero-actions"><button class="button primary" data-action="new-quote">Start a quote</button><button class="button" data-action="import">Import a record</button></div>
-      <ul class="proof-line"><li>Works offline</li><li>No account</li><li>Your device, your data</li></ul>
+      <span class="eyebrow">Quote acceptance records</span>
+      <h1 id="home-title">Record a quote and client decision</h1>
+      <p>For consultants and trade businesses who need the agreed scope, exclusions, price, and later changes in one record.</p>
+      <div class="hero-actions"><a class="button primary" href="/demo" data-route>Try it with sample data</a><button class="button" data-action="new-quote">Start your first quote</button><button class="button quiet" data-action="import">Import a record</button></div>
+      <p class="action-note">The sample opens a completed quote without changing your records.</p>
+      <ul class="proof-line"><li>Works offline after your first visit</li><li>Records stay in this browser</li><li>Free for three open packets</li></ul>
     </div>
     <figure class="hero-figure">
       <picture><source media="(max-width: 760px)" srcset="/assets/scopestamp-notebook-768.webp"><img src="/assets/scopestamp-notebook.webp" width="1280" height="853" alt="An open graph-paper field notebook with measured drawings, a date stamp and an unlabelled red approval mark" fetchpriority="high" decoding="async"></picture>
-      <figcaption>Every decision gets a dated entry.</figcaption>
+      <figcaption>A dated record keeps the agreed work together.</figcaption>
     </figure>
-  </section>`;
+  </section>
+  <section class="landing-section preview-section" aria-labelledby="preview-title">
+    <div><span class="eyebrow">Example record</span><h2 id="preview-title">See the accepted work at a glance</h2><p>The sample shows a $1,750 shelving quote, three exclusions, a named decision, and one later change.</p><a class="text-link" href="/demo" data-route>Open the full sample</a></div>
+    <div class="preview-record"><span class="status accepted">✓ Accepted</span><h3>Oak studio shelving</h3><dl><div><dt>Client</dt><dd>Maya Chen</dd></div><div><dt>Quoted total</dt><dd>$1,750.00</dd></div><div><dt>Change</dt><dd>+$180.00 awaiting decision</dd></div></dl></div>
+  </section>
+  <section class="landing-section" aria-labelledby="how-title"><span class="eyebrow">How it works</span><h2 id="how-title">Create, share, and keep the record</h2><ol class="steps"><li><strong>Write the quote.</strong><span>List the work, prices, exclusions, and terms.</span></li><li><strong>Send the locked link.</strong><span>Your client accepts or declines the exact packet.</span></li><li><strong>Keep later changes together.</strong><span>Add each change and import its decision receipt.</span></li></ol></section>
+  <section class="landing-section split-section" aria-labelledby="limits-title"><div><span class="eyebrow">Limits and privacy</span><h2 id="limits-title">A record tool, not a contract service</h2><p>ScopeStamp does not verify identity, write legal terms, send email, take payment, or promise legal effect.</p><p>Quote records stay in this browser. Shared links can be read by anyone who receives them.</p></div><div><span class="eyebrow">One-time option</span><h2>Field kit costs $39 once</h2><p>The free version allows three open packets. Field kit removes that open-packet limit after license verification.</p><button class="button" data-action="license">View the Field kit</button></div></section>`;
 }
 
 async function home(): Promise<string> {
+  if (isDemoMode()) await seedDemo();
   const quotes = await db.quotes();
   if (!quotes.length) return hero();
   const accepted = quotes.filter(q => q.status === 'accepted').length;
@@ -88,7 +102,7 @@ async function home(): Promise<string> {
       <div><span class="status ${q.status}">${statusSymbol(q.status)} ${statusLabel(q.status)}</span><h2><a href="#quote/${q.id}" data-route>${escape(q.projectTitle || 'Untitled quote')}</a></h2><div class="row-meta"><span>${escape(q.reference)}</span><span>${escape(q.clientName || 'Client not set')}</span><span>${money(quoteTotal(q), q.currency)}</span><span>Updated ${dateTime(q.updatedAt)}</span></div></div>
       <a class="button" href="#quote/${q.id}" data-route>${q.status === 'draft' ? 'Continue draft' : 'Open record'}</a>
     </li>`).join('')}</ul>
-    <div class="license-note"><strong>${cachedLicense().unlocked ? 'Field kit unlocked.' : cachedLicense().reason ? 'License no longer active.' : 'Free notebook: 3 open packets.'}</strong> ${cachedLicense().unlocked ? 'Unlimited active packets are available on this device.' : 'Accepted and declined records never count against the limit. The $39 Field kit is a one-time unlock for unlimited active packets.'} <button class="button quiet small" data-action="license">${cachedLicense().unlocked ? 'Manage license' : cachedLicense().reason ? 'Check or replace license' : 'See the field kit'}</button></div>
+    ${isDemoMode() ? '' : `<div class="license-note"><strong>${currentLicense().unlocked ? 'Field kit active.' : currentLicense().reason ? 'License no longer active.' : 'Free version: three open packets.'}</strong> ${currentLicense().unlocked ? 'The open-packet limit is removed in this browser.' : 'Accepted and declined records do not count toward the limit. Field kit costs $39 once.'} <button class="button quiet small" data-action="license">${currentLicense().unlocked ? 'Manage license' : currentLicense().reason ? 'Check or replace license' : 'View the Field kit'}</button></div>`}
   </section>`;
 }
 
@@ -96,7 +110,7 @@ function editor(quote: Quote): string {
   return `<section>
     <div class="page-head"><div><span class="eyebrow">Draft · revision ${quote.revision}</span><h1>${escape(quote.projectTitle || 'New quote')}</h1><p class="index-meta">Nothing is shared until you lock this revision.</p></div><a class="button" href="/" data-route>Back to records</a></div>
     ${editorError ? `<div class="error-box" role="alert"><strong>Couldn’t lock this quote.</strong><br>${escape(editorError)}</div>` : ''}
-    <form id="quote-form" class="sheet" novalidate>
+    <form id="quote-form" class="sheet" novalidate><p class="required-note"><span aria-hidden="true">*</span> Required fields</p>
       <section class="form-section"><span class="section-kicker">01 · Record heading</span><h2>Who and what</h2><div class="field-grid">
         ${field('businessName','Your business name',quote.businessName,true)}${field('businessEmail','Your email',quote.businessEmail,true,'email')}
         ${field('clientName','Client name',quote.clientName,true)}${field('clientEmail','Client email',quote.clientEmail,false,'email')}
@@ -144,14 +158,17 @@ async function reviewPage(encoded: string): Promise<string> {
       <div class="decision-buttons no-print"><button class="button" data-action="print">Print / save PDF</button></div>
     </article>`;
   } catch (error) {
-    return `<section class="empty-note"><span class="eyebrow">Packet error</span><h1>This record can’t be opened.</h1><p>${escape(error instanceof Error ? error.message : 'The shared link is incomplete.')}</p><p>Ask the sender to copy the complete ScopeStamp link or export the packet again.</p></section>`;
+    const message = error instanceof Error && error.message.startsWith('The packet contents')
+      ? error.message
+      : 'The shared link is incomplete or has changed.';
+    return `<section class="empty-note"><span class="eyebrow">Packet error</span><h1>This record can’t be opened</h1><p>${escape(message)}</p><p>Ask the sender to copy a fresh ScopeStamp link.</p></section>`;
   }
 }
 
 function decisionForm(packet: Packet): string {
   const label = packet.kind === 'quote' ? 'quote, scope, exclusions and stated terms' : 'scoped change and its price and schedule impact';
   return `<section class="decision-panel"><span class="section-kicker">Your recorded decision</span><h2>Accept or decline this ${packet.kind}</h2><p>Your typed name, choice, device time and timezone are recorded in a downloadable receipt. This is not legal advice or a promise of legal effect.</p>
-    <form id="decision-form"><input type="hidden" name="packet" value="${escape(encodePacket(packet))}"><div class="field"><label for="actorName">Your full name *</label><input id="actorName" name="actorName" autocomplete="name" required></div><div class="field"><label for="decisionNote">Note (optional)</label><textarea id="decisionNote" name="note"></textarea></div><label class="check-line"><input type="checkbox" name="acknowledge" required><span>I have reviewed this ${label} and intend the decision I choose below.</span></label><div class="decision-buttons"><button class="button primary" name="decision" value="accepted">✓ Accept ${packet.kind}</button><button class="button danger" name="decision" value="declined">× Decline ${packet.kind}</button></div></form>
+    <form id="decision-form"><input type="hidden" name="packet" value="${escape(encodePacket(packet))}"><p class="required-note"><span aria-hidden="true">*</span> Required fields</p><div class="field"><label for="actorName">Your full name *</label><input id="actorName" name="actorName" autocomplete="name" required></div><div class="field"><label for="decisionNote">Note (optional)</label><textarea id="decisionNote" name="note"></textarea></div><label class="check-line"><input type="checkbox" name="acknowledge" required><span>I have reviewed this ${label} and intend the decision I choose below.</span></label><div class="decision-buttons"><button class="button primary" name="decision" value="accepted">✓ Accept ${packet.kind}</button><button class="button danger" name="decision" value="declined">× Decline ${packet.kind}</button></div></form>
   </section>`;
 }
 
@@ -164,7 +181,7 @@ async function quoteDetail(quote: Quote): Promise<string> {
   if (!quote.encodedPacket) return `<h1>Record unavailable</h1><p>This quote is missing its locked packet.</p>`;
   const packet = decodePacket(quote.encodedPacket);
   return `<article class="packet sheet">
-    <div class="page-actions no-print"><a class="button quiet" href="/" data-route>← Records</a><button class="button" data-action="print">Print / PDF</button><button class="button" data-action="export" data-id="${quote.id}">Export archive</button><button class="button" data-action="share" data-id="${quote.id}">Share decision link</button></div>
+    <div class="page-actions no-print"><a class="button quiet" href="${isDemoMode() ? '/demo' : '/'}" data-route>← Records</a><button class="button" data-action="print">Print / PDF</button><button class="button" data-action="export" data-id="${quote.id}">Export archive</button><button class="button" data-action="share" data-id="${quote.id}">Share decision link</button><button class="button danger" data-action="delete" data-id="${quote.id}">Delete record</button></div>
     ${packetBody(packet)}
     <aside class="marginalia"><span class="status ${quote.status}">${statusSymbol(quote.status)} ${statusLabel(quote.status)}</span><p><strong>Locked fingerprint</strong></p><div class="hash">SHA-256 ${escape(quote.packetHash)}</div><p>Locked ${dateTime(packet.kind === 'quote' ? packet.lockedAt : quote.updatedAt)}. Device timezone: ${escape(quote.events[0]?.timezone || 'not recorded')}.</p></aside>
     ${quote.status === 'awaiting' ? `<section class="packet-section no-print"><h2>Waiting for the client</h2><p>Send the decision link. The client can review offline after first load, choose accept or decline, and return the downloaded receipt.</p><div class="decision-buttons"><button class="button primary" data-action="share" data-id="${quote.id}">Copy / share link</button><button class="button" data-action="import" data-id="${quote.id}">Import client receipt</button></div></section>` : `<section class="packet-section"><h2>Recorded decision</h2>${quote.events.filter(e => e.type === 'quote_accepted' || e.type === 'quote_declined').map(event => `<div class="decision-stamp ${quote.status}">${quote.status === 'accepted' ? '✓ Accepted' : '× Declined'}</div><p>Recorded for <strong>${escape(event.actor)}</strong> on ${dateTime(event.occurredAt)}.</p>`).join('')}</section>`}
@@ -184,8 +201,8 @@ function ledgerSection(events: LedgerEvent[]): string {
 }
 
 function legalPage(kind: 'privacy' | 'terms'): string {
-  if (kind === 'privacy') return `<article class="legal"><span class="eyebrow">Last updated 28 August 2026</span><h1>Privacy</h1><h2>Your records stay local</h2><p>ScopeStamp stores quotes, client details, decisions and change history in IndexedDB in this browser. We do not receive or sync that content. Shared links contain the locked quote in the URL fragment; browsers do not send URL fragments to the server, but anyone with the link can read its contents.</p><h2>Billing and licenses</h2><p>If you buy the Field kit, the hosted checkout and license verification are operated by Sociobot, with Dodo as merchant of record. ScopeStamp sends only the license token for verification. Payment details never enter this app.</p><h2>Network use</h2><p>The app uses no analytics, advertising, third-party fonts or tracking scripts. Normal web-server access logs may include an IP address and request metadata. Export or delete your records at any time. Clearing this site’s browser data also removes local records.</p><h2>Contact</h2><p>Privacy questions: <a href="mailto:privacy@sociobot.in">privacy@sociobot.in</a>.</p></article>`;
-  return `<article class="legal"><span class="eyebrow">Last updated 28 August 2026</span><h1>Terms</h1><h2>A records utility, not legal advice</h2><p>ScopeStamp helps you describe work and preserve a tamper-evident history. It does not create legal terms, verify identity, witness a signature, or promise that a recorded decision has any particular legal effect. You are responsible for the wording you use and for meeting local contract and recordkeeping requirements.</p><h2>Your responsibilities</h2><p>Only enter and share information you are entitled to use. Check all scope, pricing, exclusions and contact details before locking a revision. Keep exported archives in a safe place; local browser data can be lost when device storage is cleared.</p><h2>One-time Field kit</h2><p>The optional $39 Field kit unlocks unlimited active packets on one browser at a time via a portable license token. Sociobot/Dodo is the merchant of record and handles checkout and refunds. A refund revokes the license. Core archive export, accessibility and safety features remain free.</p><h2>Warranty and liability</h2><p>The software is provided “as is” without warranty. To the extent permitted by law, the authors are not liable for lost records, missed work, disputes or indirect damages. These terms do not limit rights that cannot legally be limited.</p><h2>Contact</h2><p>Questions: <a href="mailto:support@sociobot.in">support@sociobot.in</a>.</p></article>`;
+  if (kind === 'privacy') return `<article class="legal"><span class="eyebrow">Last updated 5 September 2026</span><h1>Privacy</h1><h2>Your records stay in your browser</h2><p>ScopeStamp stores quotes, client details, decisions, and change history in IndexedDB in this browser. ScopeStamp does not sync that content.</p><p>Shared links contain a locked quote in the URL fragment. Browsers do not send URL fragments to the web server. Anyone with a shared link can read its contents.</p><h2>Demo data stays separate</h2><p>The demo uses a separate browser database. Resetting or leaving the demo clears that sample without reading or changing your records.</p><h2>Billing and licenses</h2><p>Sociobot hosts checkout and license verification. Dodo is its merchant of record. ScopeStamp sends the license token only when it checks a license.</p><p>Payment details do not enter ScopeStamp.</p><h2>Network use</h2><p>ScopeStamp includes no analytics, advertising, external fonts, or tracking scripts. Web-server access logs may include an IP address and request details.</p><h2>Remove or export a record</h2><p>Open a quote and choose “Delete record” to remove it from this browser. “Export archive” downloads a copy first.</p><p>Clearing this site’s browser data also removes its records.</p><h2>Contact</h2><p>Privacy questions: <a href="mailto:privacy@sociobot.in">privacy@sociobot.in</a>.</p></article>`;
+  return `<article class="legal"><span class="eyebrow">Last updated 5 September 2026</span><h1>Terms</h1><h2>A records utility, not legal advice</h2><p>ScopeStamp helps you describe work and preserve a tamper-evident history. It does not create legal terms, verify identity, or witness a signature.</p><p>A recorded decision may not have a particular legal effect. You are responsible for your wording and local recordkeeping requirements.</p><h2>Your responsibilities</h2><p>Only enter and share information you may use. Check scope, pricing, exclusions, and contact details before locking a revision.</p><p>Keep exported archives in a safe place. Clearing browser storage can remove local records.</p><h2>One-time Field kit</h2><p>Field kit costs $39 once. A verified license removes the three-open-packet limit in the current browser.</p><p>Sociobot hosts checkout and license verification. Dodo is its merchant of record and handles refunds. Refunded or revoked licenses no longer remove the limit.</p><p>Archive export, accessibility, and safety features remain free.</p><h2>Warranty and liability</h2><p>The software is provided “as is” without warranty. Where law allows, the authors are not liable for lost records or indirect damages.</p><p>These terms do not limit rights that the law does not allow us to limit.</p><h2>Contact</h2><p>Questions: <a href="mailto:support@sociobot.in">support@sociobot.in</a>.</p></article>`;
 }
 
 function parseEditorForm(quote: Quote): Quote {
@@ -222,17 +239,20 @@ async function saveDraft(quote: Quote, quiet = false): Promise<Quote> {
 }
 
 function openDialog(content: string): void {
+  const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   const dialog = document.createElement('dialog');
   dialog.className = 'modal';
   dialog.innerHTML = `<div class="modal-inner">${content}</div>`;
-  dialog.addEventListener('close', () => dialog.remove());
+  const heading = dialog.querySelector<HTMLElement>('h2, h3');
+  if (heading) { heading.id = `dialog-${id()}`; dialog.setAttribute('aria-labelledby', heading.id); }
+  dialog.addEventListener('close', () => { dialog.remove(); returnFocus?.focus(); });
   document.body.append(dialog);
   dialog.showModal();
   dialog.querySelector<HTMLElement>('input, button, a')?.focus();
 }
 
 function licenseDialog(): void {
-  const state = cachedLicense();
+  const state = currentLicense();
   openDialog(`<span class="eyebrow">One-time purchase · $39</span><h2>Unlock the Field kit</h2><p>The free notebook holds three open packets, with unlimited completed archives. Field kit adds unlimited active packets and keeps every data export available.</p><p><a class="button primary" href="${BUY_URL}">Buy once for $39</a></p><hr><h3>Restore a purchase</h3><form id="license-form"><div class="field"><label for="licenseToken">License token</label><input id="licenseToken" name="token" value="${escape(state.token)}" autocomplete="off" required></div><div class="modal-actions"><button type="button" class="button quiet" data-action="close-dialog">Cancel</button><button class="button" type="submit">Verify license</button></div></form><p class="help">Checkout is hosted by Sociobot/Dodo, the merchant of record. Refunds are handled there and revoke the license. See <a href="/privacy" data-route>privacy</a> and <a href="/terms" data-route>terms</a>.</p>`);
 }
 
@@ -297,27 +317,56 @@ async function importArchive(archive: Archive): Promise<void> {
 
 async function createNew(): Promise<void> {
   const quotes = await db.quotes();
-  if (!cachedLicense().unlocked && quotes.filter(q => q.status === 'draft' || q.status === 'awaiting').length >= 3) { licenseDialog(); return; }
+  if (!currentLicense().unlocked && quotes.filter(q => q.status === 'draft' || q.status === 'awaiting').length >= 3) { licenseDialog(); return; }
   const quote = newQuote(); await db.saveQuote(quote); route(`#quote/${quote.id}/edit`);
+}
+
+function updatePageIdentity(notFound = false): void {
+  const title = notFound ? 'Page not found — ScopeStamp'
+    : location.hash.startsWith('#review=') ? 'Client review — ScopeStamp'
+      : location.pathname === '/privacy' ? 'Privacy — ScopeStamp'
+        : location.pathname === '/terms' ? 'Terms — ScopeStamp'
+          : isDemoMode() ? 'Demo — ScopeStamp'
+            : location.hash.startsWith('#quote/') ? 'Quote record — ScopeStamp'
+              : 'ScopeStamp — record quote decisions';
+  document.title = title;
+  const canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+  if (canonical) canonical.href = `${location.origin}${['/', '/privacy', '/terms', '/demo'].includes(location.pathname) ? location.pathname : '/'}`;
+  if (!focusAfterRender) return;
+  const heading = document.querySelector<HTMLElement>('main h1');
+  if (heading) {
+    heading.tabIndex = -1;
+    heading.focus({ preventScroll: true });
+    heading.scrollIntoView({ block: 'start' });
+    const live = document.querySelector('#route-live');
+    if (live) live.textContent = heading.textContent || title;
+  }
+  focusAfterRender = false;
 }
 
 async function render(): Promise<void> {
   document.documentElement.classList.toggle('offline', !navigator.onLine);
+  let notFound = false;
   try {
     const hash = location.hash;
-    if (hash.startsWith('#review=')) { app.innerHTML = shell(await reviewPage(hash.slice(8)), true); return; }
-    if (location.pathname === '/privacy') { app.innerHTML = shell(legalPage('privacy')); return; }
-    if (location.pathname === '/terms') { app.innerHTML = shell(legalPage('terms')); return; }
-    const match = hash.match(/^#quote\/([^/]+)(\/edit)?$/);
-    if (match) {
+    if (hash.startsWith('#review=')) app.innerHTML = shell(await reviewPage(hash.slice(8)), true);
+    else if (location.pathname === '/privacy') app.innerHTML = shell(legalPage('privacy'));
+    else if (location.pathname === '/terms') app.innerHTML = shell(legalPage('terms'));
+    else if (!['/', '/demo', '/index.html'].includes(location.pathname)) {
+      notFound = true;
+      app.innerHTML = shell('<section class="not-found"><span class="error-number" aria-hidden="true">404</span><h1>This page does not exist</h1><p>The address may be incomplete. Return to your quote records or open the sample.</p><div class="hero-actions"><a class="button primary" href="/" data-route>Return home</a><a class="button" href="/demo" data-route>Open the sample</a></div></section>');
+    } else {
+      const match = hash.match(/^#quote\/([^/]+)(\/edit)?$/);
+      if (match) {
       const quote = await db.quote(match[1]);
-      if (!quote) { app.innerHTML = shell('<section class="empty-note"><h1>Record not found</h1><p>It may have been removed from this browser.</p><a class="button" href="/" data-route>Return to records</a></section>'); return; }
-      app.innerHTML = shell(await quoteDetail(quote)); return;
+        if (!quote) app.innerHTML = shell('<section class="empty-note"><h1>Record not found</h1><p>It may have been removed from this browser.</p><a class="button" href="/" data-route>Return to records</a></section>');
+        else app.innerHTML = shell(await quoteDetail(quote));
+      } else app.innerHTML = shell(await home());
     }
-    app.innerHTML = shell(await home());
   } catch (error) {
     app.innerHTML = shell(`<section class="empty-note"><h1>The notebook didn’t open.</h1><p>${escape(error instanceof Error ? error.message : 'Local storage is unavailable.')}</p><button class="button" data-action="retry">Try again</button></section>`);
   }
+  updatePageIdentity(notFound);
 }
 
 app.addEventListener('click', async event => {
@@ -325,16 +374,29 @@ app.addEventListener('click', async event => {
   if (!target) return;
   if (target.hasAttribute('data-route')) {
     event.preventDefault(); const href = target.getAttribute('href') || '/';
-    if (href.startsWith('#')) { location.hash = href; await render(); } else { history.pushState({}, '', href); location.hash = ''; await render(); }
+    if (isDemoMode() && !href.startsWith('/demo') && !href.startsWith('#')) await db.clear();
+    route(href);
     return;
   }
   const action = target.dataset.action;
   if (action === 'new-quote') await createNew();
+  if (action === 'reset-demo') { await seedDemo(true); focusAfterRender = true; await render(); toast('Sample restored.'); }
+  if (action === 'start-real') { await db.clear(); location.assign('/'); }
   if (action === 'retry') await render();
   if (action === 'license') licenseDialog();
   if (action === 'close-dialog') target.closest<HTMLDialogElement>('dialog')?.close();
   if (action === 'print') window.print();
   if (action === 'import') await importFile();
+  if (action === 'delete') {
+    const quote = await db.quote(target.dataset.id!);
+    if (quote) openDialog(`<span class="eyebrow">Remove local record</span><h2>Delete “${escape(quote.projectTitle)}”?</h2><p>This removes the quote from ${isDemoMode() ? 'the demo' : 'this browser'}. Export it first if you need a copy.</p><div class="modal-actions"><button type="button" class="button quiet" data-action="close-dialog">Keep record</button><button type="button" class="button danger" data-action="confirm-delete" data-id="${quote.id}">Delete record</button></div>`);
+  }
+  if (action === 'confirm-delete') {
+    await db.deleteQuote(target.dataset.id!);
+    target.closest<HTMLDialogElement>('dialog')?.close();
+    route(isDemoMode() ? '/demo' : '/');
+    toast('Record deleted from this browser.');
+  }
   if (action === 'save-draft' || action === 'add-item' || action === 'remove-item') {
     const match = location.hash.match(/^#quote\/([^/]+)/); if (!match) return;
     let quote = await db.quote(match[1]); if (!quote) return;
@@ -375,7 +437,7 @@ app.addEventListener('submit', async event => {
     quote.packetHash = packet.packetHash; quote.encodedPacket = encodePacket(packet); quote.status = 'awaiting';
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
     quote.events.push(await makeLedgerEvent({ type:'quote_locked', occurredAt:lockedAt, timezone, actor:quote.businessName, payload:{ packetHash: packet.packetHash, revision: quote.revision }, previousHash:null }));
-    quote.updatedAt = lockedAt; await db.saveQuote(quote); editorError = ''; location.hash = `#quote/${quote.id}`; await render(); toast('Revision locked. It is ready to share.');
+    quote.updatedAt = lockedAt; await db.saveQuote(quote); editorError = ''; route(`#quote/${quote.id}`); toast('Revision locked. It is ready to share.');
   }
   if (form.id === 'decision-form') {
     const data = new FormData(form, (event as SubmitEvent).submitter as HTMLElement);
@@ -408,6 +470,15 @@ document.addEventListener('click', event => {
   if (target) target.closest<HTMLDialogElement>('dialog')?.close();
 });
 
+document.addEventListener('click', async event => {
+  const target = (event.target as HTMLElement).closest<HTMLElement>('[data-action="confirm-delete"]');
+  if (!target) return;
+  await db.deleteQuote(target.dataset.id!);
+  target.closest<HTMLDialogElement>('dialog')?.close();
+  route(isDemoMode() ? '/demo' : '/');
+  toast('Record deleted from this browser.');
+});
+
 app.addEventListener('input', () => {
   if (!document.querySelector('#quote-form')) return;
   const note = document.querySelector('#autosave');
@@ -421,18 +492,27 @@ app.addEventListener('input', () => {
   }, 500);
 });
 
-window.addEventListener('popstate', () => void render());
-window.addEventListener('hashchange', () => void render());
+window.addEventListener('popstate', () => { focusAfterRender = true; void render(); });
+window.addEventListener('hashchange', () => { focusAfterRender = true; void render(); });
 window.addEventListener('online', () => { document.documentElement.classList.remove('offline'); toast('Back online. Local records were available throughout.'); });
 window.addEventListener('offline', () => { document.documentElement.classList.add('offline'); toast('Offline. ScopeStamp will keep working locally.'); });
 
+document.addEventListener('click', event => {
+  const link = (event.target as HTMLElement).closest<HTMLAnchorElement>('a.skip-link');
+  if (!link) return;
+  event.preventDefault();
+  history.replaceState({}, '', `${location.pathname}${location.search}#main`);
+  document.querySelector<HTMLElement>('main#main')?.focus();
+});
+
 if ('serviceWorker' in navigator) {
+  const hadController = Boolean(navigator.serviceWorker.controller);
   navigator.serviceWorker.register('/sw.js').then(registration => {
-    if (registration.waiting) toast('An update is ready. Reload to use it.');
+    if (hadController && registration.waiting) toast('An update is ready. Reload the page to install it.');
     registration.addEventListener('updatefound', () => registration.installing?.addEventListener('statechange', () => {
-      if (registration.waiting) toast('An update is ready. Reload to use it.');
+      if (hadController && registration.waiting) toast('An update is ready. Reload the page to install it.');
     }));
   }).catch(() => { /* app remains usable without install support */ });
 }
 
-void verifyLicense().then(() => render());
+void (isDemoMode() ? Promise.resolve(false) : verifyLicense()).then(() => render());

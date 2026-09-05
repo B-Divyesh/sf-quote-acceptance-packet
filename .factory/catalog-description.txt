@@ -1,0 +1,1 @@
+Record quote scope, exclusions, client decisions, and later changes in one local packet.

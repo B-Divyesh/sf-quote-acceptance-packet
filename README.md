@@ -1,65 +1,68 @@
 # ScopeStamp
 
-ScopeStamp is a private, offline-first quote acceptance notebook for solo
-consultants and trade businesses. It locks the exact scope, exclusions and
-price into a shareable review link; records a named accept/decline receipt; and
-keeps later change approvals in one tamper-evident event chain.
+ScopeStamp records quote scope, exclusions, prices, client decisions, and later
+changes. It is for solo consultants and trade businesses that need one clear
+record before work starts.
 
-It is intentionally not a CRM, payment tool, identity service or legal-terms
-generator. A ScopeStamp receipt records stated intent and timestamp provenance;
-it does not claim any particular legal effect.
+Try the isolated sample at
+<https://quote-acceptance-packet.sociobot.in/demo>. The sample uses a separate
+IndexedDB database and never reads or changes real records. See
+[.factory/demo.md](.factory/demo.md) for its contents and reset behavior.
 
-Live: <https://quote-acceptance-packet.sociobot.in>
+ScopeStamp is not a CRM, payment tool, identity service, or legal-terms
+generator. A receipt records the stated choice and device timestamp. It does
+not promise a particular legal effect.
 
-## How it works
+## What it does
 
-1. Create a quote and state both included work and exclusions.
-2. Lock the revision. ScopeStamp creates a SHA-256 fingerprint and an immutable
-   URL-encoded snapshot.
-3. Send the decision link. The client reviews it, types their name, explicitly
-   accepts or declines, and downloads a JSON receipt.
-4. Import that receipt into the original quote. The validated decision joins
-   the chained local ledger.
-5. For accepted jobs, repeat the same round trip with scoped change cards.
-6. Print any packet to PDF and export/import complete JSON archives at any time.
+1. Write a quote with included work, line prices, exclusions, and terms.
+2. Lock the revision and copy its fingerprinted review link.
+3. Let the client accept or decline and download a named receipt.
+4. Import the receipt into the quote's event chain.
+5. Record later changes through the same review and receipt flow.
+6. Print a packet or export and import its complete JSON archive.
+7. Delete a quote from the current browser when it is no longer needed.
 
-Quote data is held in IndexedDB on the current device. Shared content lives in
-the URL fragment, which is not sent to the web server. There are no accounts,
-analytics, external fonts or runtime CDNs.
+The app and warmed shared packets reload offline after the first visit. Quote
+records stay in IndexedDB in the current browser without an account. Shared
+packet content stays in the URL fragment and is not sent in web requests. The
+unlicensed app loads no analytics, ads, external fonts, tracking scripts, or
+runtime CDN resources.
 
-The free notebook supports three simultaneously open packets and unlimited
-completed archives. A one-time $39 Field kit license unlocks unlimited active
-packets through the Sociobot hosted checkout; export and accessibility are
-never gated.
+The free version allows three open packets. Accepted and declined records do
+not count toward that limit. Field kit costs $39 once and removes the limit
+after license verification. Checkout is hosted by Sociobot. License checks send
+only the token. A revoked license no longer removes the limit. Archive export
+and accessible controls remain available without a license.
+
+Every statement above has an observable browser check in
+[.factory/claims.json](.factory/claims.json).
 
 ## Develop and verify
 
-Requires Node.js 20 or newer.
+Use Node.js 20 or newer.
 
 ```sh
 npm ci
-npm run dev
 npm test
 npm run build
 npm run test:e2e
+npm run test:claims
 ```
 
-`npm run build` is the exact production build command. It creates `dist/` with
-`dist/index.html` plus direct static entry points for `/privacy` and `/terms`.
-The browser suite uses Playwright 1.58.2 and covers desktop, a 390px mobile
-viewport, axe serious/critical checks, receipt exchange, change acceptance and
-an offline reload.
+`npm run build` creates `dist/`. The browser checks use Playwright 1.58.2.
+The claim registry lists the exact command for each public claim.
 
 ## Deploy
 
-Upload the contents of `dist/` to the static host. Serve `sw.js` with no-cache
-or a short cache lifetime; hashed `/assets/` files can be immutable. No backend,
-environment variable or secret is needed. Billing redirects to the Sociobot
-API and product registration is handled outside this repository.
+Upload the contents of `dist/` to Azure Static Web Apps. The included
+`staticwebapp.config.json` sets response policies, cache rules, the manifest
+type, and the designed 404 response. No product backend or product secret is
+required.
 
-See [.factory/brief.json](.factory/brief.json) for product scope and
-[.factory/design.md](.factory/design.md) for the original visual system and
-image provenance.
+See [.factory/brief.json](.factory/brief.json) for scope and
+[.factory/design.md](.factory/design.md) for the visual system and asset
+provenance.
 
 ## License
 

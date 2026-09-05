@@ -1,9 +1,9 @@
 {
-  "name": "ScopeStamp — quote acceptance records",
+  "name": "ScopeStamp — record quote decisions",
   "short_name": "ScopeStamp",
   "description": "Local-first quote, acceptance, and scope-change records.",
   "id": "/?source=installed",
-  "start_url": "/?v=1",
+  "start_url": "/?v=5",
   "display": "standalone",
   "background_color": "#f4f0e5",
   "theme_color": "#f4f0e5",

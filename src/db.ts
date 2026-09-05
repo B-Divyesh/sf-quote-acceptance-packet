@@ -1,11 +1,21 @@
 import type { Quote, Receipt } from './types';
 
-const DB_NAME = 'scopestamp-local';
+const REAL_DB_NAME = 'scopestamp-local';
+const DEMO_DB_NAME = 'demo:scopestamp-local';
 const VERSION = 1;
+
+export function isDemoMode(): boolean {
+  const url = new URL(location.href);
+  return url.pathname === '/demo' || url.searchParams.get('demo') === '1';
+}
+
+export function activeDatabaseName(): string {
+  return isDemoMode() ? DEMO_DB_NAME : REAL_DB_NAME;
+}
 
 function open(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, VERSION);
+    const request = indexedDB.open(activeDatabaseName(), VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains('quotes')) db.createObjectStore('quotes', { keyPath: 'id' });

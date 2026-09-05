@@ -3,14 +3,15 @@ import AxeBuilder from '@axe-core/playwright';
 
 test.beforeEach(async ({ page }) => {
   await page.goto('/');
-  await page.evaluate(() => new Promise<void>(resolve => { const request = indexedDB.deleteDatabase('scopestamp-local'); request.onsuccess = () => resolve(); request.onerror = () => resolve(); request.onblocked = () => resolve(); }));
+  await page.evaluate(() => Promise.all(['scopestamp-local', 'demo:scopestamp-local'].map(name => new Promise<void>(resolve => { const request = indexedDB.deleteDatabase(name); request.onsuccess = () => resolve(); request.onerror = () => resolve(); request.onblocked = () => resolve(); }))));
+  await page.evaluate(() => localStorage.clear());
   await page.reload();
 });
 
 test('creates, locks, shares, decides and imports a quote receipt', async ({ page, context }, testInfo) => {
   const consoleErrors: string[] = [];
   page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
-  await page.getByRole('button', { name: 'Start a quote' }).click();
+  await page.getByRole('button', { name: 'Start your first quote' }).click();
   await page.getByLabel('Your business name').fill('Northline Joinery');
   await page.getByLabel('Your email').fill('owner@example.test');
   await page.getByLabel('Client name').fill('Alex Client');
@@ -80,7 +81,7 @@ test('creates, locks, shares, decides and imports a quote receipt', async ({ pag
 test('installed app shell and records remain available offline', async ({ page, context }) => {
   await navigatorReady(page);
   await page.reload();
-  await page.getByRole('button', { name: 'Start a quote' }).click();
+  await page.getByRole('button', { name: 'Start your first quote' }).click();
   await page.getByLabel('Project / job title').fill('Offline draft');
   await page.getByRole('button', { name: 'Save draft' }).click();
   await expect.poll(() => page.evaluate(async () => {
@@ -107,3 +108,67 @@ async function navigatorReady(page: import('@playwright/test').Page) {
     }
   });
 }
+
+test('keyboard navigation moves focus for skip links and routes', async ({ page }) => {
+  await page.keyboard.press('Tab');
+  await expect(page.getByRole('link', { name: 'Skip to main content' })).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('main')).toBeFocused();
+
+  await page.getByRole('link', { name: 'Privacy', exact: true }).first().click();
+  await expect(page.getByRole('heading', { name: 'Privacy', exact: true })).toBeFocused();
+  await expect(page.locator('#route-live')).toHaveText('Privacy');
+  await expect(page).toHaveTitle('Privacy — ScopeStamp');
+  await page.goBack();
+  await expect(page.getByRole('heading', { name: 'Record a quote and client decision' })).toBeFocused();
+});
+
+test('demo, legal, and not-found routes have complete page structure', async ({ page }) => {
+  await page.goto('/demo');
+  await expect(page).toHaveTitle('Demo — ScopeStamp');
+  await expect(page.getByText('Demo — sample data, nothing is saved to your records')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Oak studio shelving' })).toBeVisible();
+  await expect(page.locator('h1')).toHaveCount(1);
+
+  await page.goto('/terms');
+  await expect(page).toHaveTitle('Terms — ScopeStamp');
+  await expect(page.locator('h1')).toHaveCount(1);
+
+  await page.goto('/404.html');
+  await expect(page).toHaveTitle('Page not found — ScopeStamp');
+  await expect(page.getByRole('heading', { name: 'This page does not exist' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Return home' })).toBeVisible();
+});
+
+test('a first service-worker install does not announce a false update', async ({ page }) => {
+  await navigatorReady(page);
+  await page.waitForTimeout(500);
+  await expect(page.locator('#toast-live')).not.toContainText(/update/i);
+});
+
+test('visible controls meet the touch target baseline and motion can be reduced', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  const shortTargets = await page.locator('a:visible, button:visible').evaluateAll(elements => elements
+    .map(element => ({ label: (element.textContent || element.getAttribute('aria-label') || '').trim(), rect: element.getBoundingClientRect() }))
+    .filter(item => item.rect.width < 44 || item.rect.height < 44)
+    .map(item => ({ label: item.label, width: item.rect.width, height: item.rect.height })));
+  expect(shortTargets).toEqual([]);
+  const transition = await page.getByRole('button', { name: 'Start your first quote' }).evaluate(element => getComputedStyle(element).transitionDuration);
+  expect(Number.parseFloat(transition)).toBeLessThanOrEqual(0.00001);
+  await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test('dark treatment and the purchase dialog pass an accessibility scan', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.reload();
+  expect(await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor)).toBe('rgb(23, 27, 29)');
+  const opener = page.getByRole('button', { name: 'View Field kit' }).first();
+  await opener.click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Buy once for $39' })).toBeFocused();
+  const results = await new AxeBuilder({ page: page as never }).analyze();
+  expect(results.violations.filter(v => ['serious', 'critical'].includes(v.impact || ''))).toEqual([]);
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await expect(opener).toBeFocused();
+});

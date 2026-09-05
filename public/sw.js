@@ -1,4 +1,4 @@
-const VERSION = 'scopestamp-v4';
+const VERSION = 'scopestamp-v5';
 const SHELL = ['/', '/index.html', '/offline.html', '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/icon-512.png', '/assets/scopestamp-notebook.webp', '/assets/scopestamp-notebook-768.webp'];
 
 self.addEventListener('install', event => {

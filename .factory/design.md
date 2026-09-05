@@ -105,6 +105,10 @@ Asset provenance:
   `assets/src/scopestamp-notebook.prompt.json`.
 - App icons and UI glyphs are hand-authored SVG/CSS shapes in this repository,
   MIT licensed with the product.
+- `public/assets/scopestamp-social.png` is a 1200×630 centre crop composed
+  locally from the generated notebook artwork on 2026-09-05. The Apple touch
+  icon is a resized export of the hand-authored app icon. No new source
+  material was introduced.
 
 ## Accessibility and performance intent
 
