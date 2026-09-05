@@ -263,12 +263,37 @@ test('the free version allows three open packets and blocks the fourth @claim:fr
   await expect(page.getByText('Open draft 3')).toBeVisible();
 });
 
-test('completed records do not count toward the open limit @claim:completed-not-counted', async ({ page }) => {
+test('accepted and declined records do not count toward the open limit @claim:completed-not-counted', async ({ page, context }) => {
   await clearProductState(page);
   await page.goto('/demo');
   await expect(page.getByText('1 packet · 1 accepted')).toBeVisible();
   for (let index = 1; index <= 3; index++) await createOpenDraft(page, index);
   await expect(page.getByText('4 packets · 1 accepted')).toBeVisible();
+  await page.getByRole('banner').getByRole('button', { name: 'New quote' }).click();
+  await expect(page.getByRole('heading', { name: 'Unlock the Field kit' })).toBeVisible();
+
+  await clearProductState(page);
+  await startQuote(page, 'Declined workshop refit');
+  await page.getByRole('button', { name: 'Copy / share link' }).click();
+  const client = await context.newPage();
+  await client.goto(await sharedUrl(page));
+  await client.getByLabel('Your full name').fill('Maya Chen');
+  await client.getByRole('checkbox').check();
+  await client.getByRole('button', { name: 'Decline quote' }).click();
+  const download = client.waitForEvent('download');
+  await client.getByRole('button', { name: 'Download receipt' }).click();
+  const receiptPath = await (await download).path();
+  expect(receiptPath).toBeTruthy();
+  await page.getByRole('button', { name: 'Import client receipt' }).click();
+  await page.locator('input[type=file]').setInputFiles(receiptPath!);
+  await expect(page.getByText('Declined').first()).toBeVisible();
+  await client.close();
+
+  for (let index = 1; index <= 3; index++) await createOpenDraft(page, index);
+  await expect(page.getByRole('link', { name: 'Declined workshop refit', exact: true })).toBeVisible();
+  for (let index = 1; index <= 3; index++) {
+    await expect(page.getByRole('link', { name: `Open draft ${index}`, exact: true })).toBeVisible();
+  }
   await page.getByRole('banner').getByRole('button', { name: 'New quote' }).click();
   await expect(page.getByRole('heading', { name: 'Unlock the Field kit' })).toBeVisible();
 });
