@@ -1,5 +1,20 @@
 # ScopeStamp repair handoff
 
+## Review 2 — current status
+
+Independent strict review on 2026-09-05 is **FAIL** with **1 finding** and
+**1 untested public claim**. The reviewed runtime remains implementation
+`1251dc8aaae640446d250b0c9b490f43beed4d16`; the prior verification report is
+documentation at `35971c031dda072f02a7b5a9c61631a7eb2bb74b`.
+
+All quality commands and all 18 declared claim commands pass. The blocking gap
+is narrower: `completed-not-counted` promises that both accepted **and
+declined** records do not count toward the three-open-packet limit, but its
+tagged test proves only the accepted state. See
+[.factory/review-2.md](review-2.md). Add a declined-state sandbox assertion or
+narrow the public copy, then rerun the review. No product code changed during
+this review.
+
 ## Verification 2
 
 Independent verification on 2026-09-05 passed with zero findings and zero
