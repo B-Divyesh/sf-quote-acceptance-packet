@@ -1,5 +1,25 @@
 # ScopeStamp repair handoff
 
+## Verification 2
+
+Independent verification on 2026-09-05 passed with zero findings and zero
+untested public claims. It reviewed runtime candidate
+`1251dc8aaae640446d250b0c9b490f43beed4d16`; this handoff and the detailed
+verification report are documentation at
+`b711dc22c30b52c6774af07425e6ae3b64abf5d0` plus the verification-report
+commit. See [.factory/verification-2.md](verification-2.md).
+
+- Fresh desktop and phone live checks showed the job, audience, sample action,
+  and three facts before scrolling; the sample was populated, labelled,
+  resettable, and independently proven separate from real storage.
+- Live normal, invalid, recovery, keyboard, route/focus, offline, privacy,
+  accessibility, legal, links, cache/header, and designed-404 checks passed.
+- `npm ci`, `npm test` (2/2), `npm run build`, `npm run test:e2e` (16/16),
+  `npm run test:claims` (18/18), and all 18 individual claim commands passed.
+- The fresh `dist/` build matched all 21 live public file bytes. The only
+  deliberately unexercised external behavior is paid checkout/license issuance
+  through Sociobot/Dodo; recorded-fixture tests cover the product integration.
+
 ## Current result
 
 Repair work order `quote-acceptance-packet-repair-1` is complete and deployed at
